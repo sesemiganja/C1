@@ -1,0 +1,16 @@
+name: Notify Vercel Deployment
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  notify-vercel:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Notify Vercel
+        uses: vercel/repository-dispatch/actions/status@v1
+        with:
+          name: Vercel - ci: https://github.com/sesemiganja/C1
