@@ -3,10 +3,20 @@ import OpenAI from "openai";
 import { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import { transformStream } from "@crayonai/stream";
 
-const client = new OpenAI({
-  baseURL: "https://api.thesys.dev/v1/embed",
-  apiKey: process.env.THESYS_API_KEY,
-});
+// Initialize OpenAI client with API key validation at runtime
+const getOpenAIClient = () => {
+  const apiKey = process.env.THESYS_API_KEY || process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      "API key is required. Please set either THESYS_API_KEY or OPENAI_API_KEY environment variable."
+    );
+  }
+  
+  return new OpenAI({
+    baseURL: "https://api.thesys.dev/v1/embed",
+    apiKey,
+  });
+};
 
 export async function POST(req: NextRequest) {
   const { prompt, previousC1Response } = (await req.json()) as {
@@ -28,6 +38,7 @@ export async function POST(req: NextRequest) {
     content: prompt,
   });
 
+  const client = getOpenAIClient();
   const llmStream = await client.chat.completions.create({
     model: "c1/openai/gpt-5/v-20250915",
     messages: [...messages],
