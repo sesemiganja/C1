@@ -9,40 +9,74 @@ const client = new OpenAI({
 });
 
 export async function POST(req: NextRequest) {
-  const { prompt, previousC1Response } = (await req.json()) as {
-    prompt: string;
-    previousC1Response?: string;
-  };
+  try {
+    // Validate request body
+    const body = await req.json();
+    const { prompt, previousC1Response } = body as {
+      prompt: string;
+      previousC1Response?: string;
+    };
 
-  const messages: ChatCompletionMessageParam[] = [];
+    // Validate required fields
+    if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
+      return new Response(JSON.stringify({ error: "Prompt is required and must be a non-empty string" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
 
-  if (previousC1Response) {
+    // Validate prompt length to prevent abuse
+    if (prompt.length > 10000) {
+      return new Response(JSON.stringify({ error: "Prompt is too long. Maximum 10,000 characters allowed." }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // Validate API key
+    if (!process.env.THESYS_API_KEY) {
+      return new Response(JSON.stringify({ error: "API key not configured" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const messages: ChatCompletionMessageParam[] = [];
+
+    if (previousC1Response && typeof previousC1Response === 'string') {
+      messages.push({
+        role: "assistant",
+        content: previousC1Response,
+      });
+    }
+
     messages.push({
-      role: "assistant",
-      content: previousC1Response,
+      role: "user",
+      content: prompt.trim(),
+    });
+
+    const llmStream = await client.chat.completions.create({
+      model: "c1/openai/gpt-5/v-20250915",
+      messages: [...messages],
+      stream: true,
+    });
+
+    const responseStream = transformStream(llmStream, (chunk) => {
+      return chunk.choices[0]?.delta?.content || "";
+    });
+
+    return new Response(responseStream as ReadableStream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+      },
+    });
+  } catch (error) {
+    console.error("Error in API route:", error);
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
     });
   }
-
-  messages.push({
-    role: "user",
-    content: prompt,
-  });
-
-  const llmStream = await client.chat.completions.create({
-    model: "c1/openai/gpt-5/v-20250915",
-    messages: [...messages],
-    stream: true,
-  });
-
-  const responseStream = transformStream(llmStream, (chunk) => {
-    return chunk.choices[0]?.delta?.content || "";
-  });
-
-  return new Response(responseStream as ReadableStream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache, no-transform",
-      Connection: "keep-alive",
-    },
-  });
 }
