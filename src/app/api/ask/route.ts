@@ -3,10 +3,23 @@ import OpenAI from "openai";
 import { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import { transformStream } from "@crayonai/stream";
 
-const client = new OpenAI({
-  baseURL: "https://api.thesys.dev/v1/embed",
-  apiKey: process.env.THESYS_API_KEY,
-});
+/**
+ * Lazily create the OpenAI client only when handling a request.
+ * This avoids throwing at import-time during Next.js build when env vars are absent.
+ */
+function createOpenAIClient(): OpenAI {
+  const apiKey = process.env.THESYS_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      "THESYS_API_KEY is missing. Set it in the environment to call the API."
+    );
+  }
+
+  return new OpenAI({
+    baseURL: "https://api.thesys.dev/v1/embed",
+    apiKey,
+  });
+}
 
 export async function POST(req: NextRequest) {
   const { prompt, previousC1Response } = (await req.json()) as {
@@ -28,6 +41,7 @@ export async function POST(req: NextRequest) {
     content: prompt,
   });
 
+  const client = createOpenAIClient();
   const llmStream = await client.chat.completions.create({
     model: "c1/openai/gpt-5/v-20250915",
     messages: [...messages],
