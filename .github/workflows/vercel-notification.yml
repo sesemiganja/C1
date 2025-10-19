@@ -11,6 +11,8 @@ jobs:
 
     steps:
       - name: Notify Vercel
-        uses: vercel/repository-dispatch/actions/status@v1
+        uses: vercel/repository-dispatch@v1
         with:
-          name: Vercel - ci: https://github.com/sesemiganja/C1
+          token: ${{ secrets.GITHUB_TOKEN }}
+          event-type: vercel-deployment
+          client-payload: '{"ref": "${{ github.ref }}", "sha": "${{ github.sha }}"}'
