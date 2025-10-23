@@ -9,7 +9,7 @@ Template repository for a generative UI app, powered by [C1 by Thesys](https://t
 First, generate a new API key from [Thesys Console](https://chat.thesys.dev/console/keys) and then set it your environment variable.
 
 ```bash
-export THESYS_API_KEY=sk-th-ZswHmbzqpbpjns9G5KwVmwzpXfYMLEqL0zEAN3LLLWXUqM16hXYLnZE2Ww2t9ldVprPxvsoWBjP9D7CqXEB3BaLde9OtDCF3XjpS
+export THESYS_API_KEY=<your-api-key>
 ```
 
 Install dependencies:
