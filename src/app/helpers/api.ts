@@ -42,6 +42,11 @@ export const makeApiCall = async ({
     setAbortController(newAbortController);
     setIsLoading(true);
 
+    // Check if the request was cancelled before we even started
+    if (newAbortController.signal.aborted) {
+      return;
+    }
+
     // Make the API request with the abort signal
     const response = await fetch("/api/ask", {
       method: "POST",
@@ -66,23 +71,35 @@ export const makeApiCall = async ({
     // Initialize accumulator for streamed response
     let streamResponse = "";
 
-    // Read the stream chunk by chunk
-    while (true) {
-      const { done, value } = await stream.read();
-      // Decode the chunk, considering if it's the final chunk
-      const chunk = decoder.decode(value, { stream: !done });
+    // Read the stream chunk by chunk with timeout protection
+    const timeoutId = setTimeout(() => {
+      stream.cancel();
+    }, 30000); // 30 second timeout
 
-      // Accumulate response and update state
-      streamResponse += chunk;
-      setC1Response(streamResponse);
+    try {
+      while (true) {
+        const { done, value } = await stream.read();
+        
+        // Decode the chunk, considering if it's the final chunk
+        const chunk = decoder.decode(value, { stream: !done });
 
-      // Break the loop when stream is complete
-      if (done) {
-        break;
+        // Accumulate response and update state
+        streamResponse += chunk;
+        setC1Response(streamResponse);
+
+        // Break the loop when stream is complete
+        if (done) {
+          break;
+        }
       }
+    } finally {
+      clearTimeout(timeoutId);
     }
   } catch (error) {
-    console.error("Error in makeApiCall:", error);
+    // Don't log abort errors as they are expected when cancelling requests
+    if (error instanceof Error && error.name !== 'AbortError') {
+      console.error("Error in makeApiCall:", error);
+    }
   } finally {
     // Clean up: reset loading state and abort controller
     setIsLoading(false);
